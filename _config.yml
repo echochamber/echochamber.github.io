@@ -1,0 +1,18 @@
+title: Eccode Chamber
+description: A Blog About Coding and Related Topics
+meta_description: "A blog about coding and related topics"
+
+markdown: redcarpet
+highlight: pygments
+logo: false
+paginate: 15
+
+# Details for the RSS feed generator
+author: 'Jason Schein'
+social:
+    email: 'jasonschein@gmail.com'
+    github: 'echochamber'
+    twitter: 'jechochamber'
+disqus_shortname: eccodechamber
+googleanalytics: UA-54352885-1
+BASE_URL: 'http://echochamber.github.io'
