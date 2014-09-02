@@ -1,8 +1,6 @@
 title: Eccode Chamber
-description: A Blog About Coding and Related Topics
-meta_description: "A blog about coding and related topics"
 
-markdown: redcarpet
+markdown: kramdown
 highlight: pygments
 logo: false
 paginate: 15
@@ -12,7 +10,8 @@ author: 'Jason Schein'
 social:
     email: 'jasonschein@gmail.com'
     github: 'echochamber'
-    twitter: 'jechochamber'
 disqus_shortname: eccodechamber
 googleanalytics: UA-54352885-1
 BASE_URL: 'http://echochamber.github.io'
+gems:
+    - jekyll-paginate
