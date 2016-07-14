@@ -94,44 +94,54 @@ A resource is literally anything you want to restrict access to. Common examples
 
 ### What does it mean to be granted authorization?
 
-Being granted authorization means whoever or whatever is is making the current request is allowed to do or see something. Usually it is a user who is attempting to be authorized, but not always. In reality, the only thing required to perform authorization is a authenticated token in TokenStorage. This token may or may have a user stored on it or a user associated with it in some other way, but it is not required. For example, maybe there is something that only Anonymously Authenticated users should have access to (such as the log in page or registration apge). In this case, authorization would still be performed even though there is no current "user", just the token. Regardless, being granted authorization simply means that the currently authenticated token is allowed to see or do whatever thing it is requesting authorization for.
+Being granted authorization means whoever or whatever is making the current request is actually allowed to do or see something. Usually it is a user who is attempting to be authorized, but not always. In reality, the only thing required to perform authorization is a authenticated token in TokenStorage. This token may or may have a user stored on it or a user associated with it in some other way, but it is not required. For example, maybe there is something that only Anonymously Authenticated users should have access to, such as the log in page or registration page. In this case, authorization would still be performed even though there is no current "user", just the token. Regardless, being granted authorization simply means that the currently authenticated token is allowed to see or do whatever thing it is requesting authorization for.
 
 ### So how does symfony do authorization?
 
-Well you can think of it as 3 layers really. At the top there is the AuthorizationChecker object, in the middle there is the AccessDecisionManager object, and at the bottom are a bunch of Voter objects.
+Well you can think of it as 3 layers really.
 
-So lets start at the top with the AuthorizationChecker object. It is where the entire authorization process begins. Any time Symfony checks if something is allowed or not for the current user, a call to. `\Symfony\Component\Security\Core\Authorization\AuthorizationChecker::isGranted`. It's the only thing you should ever think to look call upon when somewhere in your application you need to check if something is authorized.
+1. At the top (or front if you prefer to call it that) there is the AuthorizationChecker object
+2. In the middle there is the AccessDecisionManager object
+3. At the bottom are a bunch of Voter objects.
 
-The authorization checker doesn't do much itself. Actually, all it does is check to see if there is an authentication token present in TokenStorage (since authorization doesn't make any sense without having already done authentication, we wouldn't even know who the user we are trying to determine authorization for is!). After verifying authentication has actually taken place, it simply delegates the actual job of determining whether or not to grant or deny authorization to the AccessDecisionManager object.
+So lets start at the top with the AuthorizationChecker object. It is where the entire authorization process begins. Any time Symfony checks if something is allowed or not for the current user, a call should me made to. `\Symfony\Component\Security\Core\Authorization\AuthorizationChecker::isGranted`. It's the only thing you as the developer should ever think to call upon when somewhere in your application you need to check if something is authorized. To be explicitly clear, this is how you ask the question "is this allowed" somewhere in your code. How that question is answered is not of any concern to the authorization checker. The voters, covered below, are responsible for determining the how. The answer is always either one of two possibities: **yes**, access is granted, or **no**, access is denied.
 
-The AccessDecisionManager's job is aggregate all the various different authorization rules (which take the form of Voter objects) in one place and determine the Voter (or Voters) that are pertinent to the "resource" which is currently the current user is attempting to be authorized to access. Most of the time only be a single voter with actually cast a vote when checking authorization, but sometimes there will be multiple or even none. In the case that there are multiple voters, or no voters, for a single authorization check, it is the `AccessDecisionMaker`'s responsibity for deciding how to proceed. How that is depends entirely on how you configured it.
-    * AccessDecisionManager::STRATEGY_AFFIRMATIVE - As long as one voter says yes, then grant access no matter what any other voters said.
-    * AccessDecisionManager::STRATEGY_CONSENSUS - The majority of voters that actually voted must have said yes, otherwise access will be denied.
-    * AccessDecisionManager::STRATEGY_UNANIMOUS - All voters that actually voted must have said yes, otherwise access will be denied.
-The case for no voters voting, or for tied votes is also configurable via constructor arguments for AccessDecisionManager. By default access is denied in both of those situations.
+The authorization checker doesn't do much itself. Actually, all it does is check to see if there is an authentication token present in TokenStorage (since authorization doesn't make any sense without having already done authentication, we wouldn't even know who or what we are trying to determine authorization for!). After verifying authentication has actually taken place, it simply delegates the actual job of determining whether or not to grant or deny authorization to the AccessDecisionManager object.
 
-So lastly at the very bottom of the process are all the Voter objects. Voter objects are dead simple. They have one method, vote, which returns one of three options:
-    * VoterInterface::ACCESS_GRANTED - Yes, do grant access for the current authorization check.
-    * VoterInterface::ACCESS_DENIED - No, deny access for the current authorization check.
-    * VoterInterface::ACCESS_ABSTAIN - This voter does not contain any logic/rules for determining if the current authorization check should be denied or granted.
+The AccessDecisionManager's job is aggregate all the various different authorization rules (which take the form of Voter objects) in one place and determine the Voter (or Voters) that are pertinent to the question "is this allowed". This question takes the form of the "resource" which is attempting to be accessed and the currently authenticated token, which probably contains a user or at the very least a reference to one. *"Is this token authorized to access this resource?"*.
 
-There are three parameters of the VoterInterface::vote method and at first glance it might not be entirely clear what each is:
-    * $token - The token which was created during the authentication process.
-    * $subject - If there is a specific object authorization is being checked for, this is it. There are plenty of times where there is no object, in which case the subject is null. For example, checking if the current user is granted admin access does not involve a specific object.
-    * $attributes - Like resource, what attributes actually are is somewhat vague. You can think of them as a list of names.
-        * When checking authorization on a specific $subject, the attributes may be the names of the specific actions the current user is requesting authorization to perform on the object. For example, when updating and publishing an article the article would be the $subject and the $attributes might look like `['ARTICLE_PUBLISH', 'ARTICLE_EDIT']`.
-        * When checking authorization with no subject, the attributes may be general access levels the system is checking if the current user has. For example, checking if a user is allowed to create a new user the attributes might look something like this ['ROLE_USER_CREATOR']
+Most of the time only be a single voter with actually cast a vote when checking authorization, but sometimes there will be multiple or even none. In the case that there are multiple voters or no voters, for a single authorization check, it is the `AccessDecisionMaker`'s responsibity for deciding how to proceed. How that is depends entirely on how you configured it. Here are the possible options the Symfony Security Component ships with.
 
-A very good real example of a voter that doesn't need a subject is the RoleVoter that ships with symfony. It will vote any time at least one of the attributes starts with 'ROLE_', and all it does when casting its vote is check if any of the roles on the current user/authentication token match the attribute that started with 'ROLE_'. You can see the code for the RoleVoter [here](https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Security/Core/Authorization/Voter/RoleVoter.php). 
+* `AccessDecisionManager::STRATEGY_AFFIRMATIVE` - As long as one voter says yes, then grant access no matter what any other voters said.
+* `AccessDecisionManager::STRATEGY_CONSENSUS` - The majority of voters that actually voted must have said yes, otherwise access will be denied.
+* `AccessDecisionManager::STRATEGY_UNANIMOUS` - All voters that actually voted must have said yes, otherwise access will be denied.
+
+The case for no voters voting, or for tied votes is also configurable via constructor arguments for AccessDecisionManager. By default access is denied in both of those situations. If no voters attempted to vote, its likely a bug in your code or mistake in your configuration.
+
+So lastly at the very bottom of the process are all the Voter objects.Voter objects are dead simple. They have one method, vote, which is invoked by the AccessDecisionManager when it has determined that a voter should be allowed to vote on an authorization check. The `vote` method returns one of three possible values:
+
+* `VoterInterface::ACCESS_GRANTED` - Yes, do grant access for the current authorization check.
+* `VoterInterface::ACCESS_DENIED` - No, deny access for the current authorization check.
+* `VoterInterface::ACCESS_ABSTAIN` - This voter does not contain any logic/rules for determining if the current authorization check should be denied or granted.
+
+The three parameters of the VoterInterface::vote method might not be entirely clear at first glance:
+
+* $token - The token which was created during the authentication process.
+* $subject - If there is a specific **object or primitive** for which authorization is being checked for, this is it. The subject literally is a php object, or native php data type. There are also plenty of times where there is no object, in which case the subject is null. For example, checking if the current user is granted admin access does not involve a specific object.
+* $attributes - Like resource, what attributes actually are is somewhat vague. You can think of them as a list of names or labels.
+    * When checking authorization on a specific $subject, the attributes may be the names of the specific actions the current user is requesting authorization to perform on the object. For example, when updating and publishing an article the article would be the $subject and the $attributes might look like `['ARTICLE_PUBLISH', 'ARTICLE_EDIT']` and the $subject might be an instance of `\Article` defined somewhere in your codebase. 
+    * When checking authorization with no subject, the attributes may be general access levels the system is checking if the current user has. For example, checking if a user is allowed to create a new user the attributes might look something like this ['ROLE_USER_CREATOR']
+
+A very good real example of a voter that doesn't need a subject is the RoleVoter that ships with symfony. It will vote any time at least one of the $attributes starts with 'ROLE_', and all it does when casting its vote is check if any of the roles on the current user/authentication token match the attribute that started with 'ROLE_'. You can see the code for the RoleVoter [here](https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Security/Core/Authorization/Voter/RoleVoter.php). 
 
 Simple Example Scenario:
 
 * A simple example of this is a regular user trying to access an endpoint that is restricted to admins.
 * Authorization is the process of retrieving the token created during authentication from token storage. If the token is an anonymous user token, it will deny access immediately. 
 * If there is a user stored on that token, authorization will proceed to verify that the user meets the required criteria to access the admin endpoint (or if that information is on the token itself, it may get it from the token itself).
-* This criteria may be as simple as verifying the user the required role(s) (ROLE_ADMIN).
-* The criteria can be something more complicated too, maybe the user has to be a certain age.
-* The AuthorizationChecker provides you with the ability define what that criteria is in many different ways. You can do it by configuration in a yml file or by writing a custom class that contains the logic for allowing or denying access to a specific resource.
+* This criteria may be as simple as verifying the user has the required role(s) (ROLE_ADMIN).
+* The criteria can be something more complicated too, maybe the user has to be a certain age, or their account has to be a certain age and have under a certain number of warnings/infractions.
+* The AuthorizationChecker provides you with the ability define what that criteria is in many different ways. You can do it by configuration in a yml file (like in the security.yml file that ships with Symfony) or by writing a custom class that contains the logic for allowing or denying access to a specific resource (AKA a Voter).
 
 
 * Actual Examples:
@@ -148,21 +158,21 @@ Simple Example Scenario:
         * Code can more clearly express the exact authorization behavior you desire for each different protected type of resource.
         * For an example of how to write authorization rules in php, look [here](http://symfony.com/doc/current/cookbook/security/voters.html)
 
-No matter how you define your authorization rules, the end result is that the AuthorizationChecker class is provided with these rules, and either through manual calls to AuthorizationChecker::isGranted() in your application code or through event listeners in symfony which act based on your configuration.
-
+No matter how you define your authorization rules, the end result is that the AuthorizationChecker class is provided with these rules, and either through manual calls to AuthorizationChecker::isGranted() in your application code or through event listeners that ship with the Symfony Standard Distribution, which act based on your configuration.
 
 ### Misc
 
-Below are a few more security related services and types to be aware of, although not explicitly requires, they still are used by the security component.
+Below are a few more security related services and types to be aware of, although not explicitly required, they still are used by the security component.
 
 
 ### User Providers:
 * A class that takes a "username" and loads the information for that user, returns a user object for that username.
 * Might be from database
 * Might be from filesystem
-* Might be from an external user directory over ldap or some other external service that provides information about users.
+* Might be from an external user directory like ldap, maybe something like OAuth, or some other external service that provides information about users.
+
 ### UserPasswordEncoder:
-* UserPasswordEncoders: What their name says they are. Just a class which knows how to encode/hash/encrypt the password of a specific User type. 
+* UserPasswordEncoders: What their name says they are. Just a class which knows how to encode/hash/encrypt the password of a specific User type.
 
 
 ### End
