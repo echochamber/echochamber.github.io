@@ -62,6 +62,7 @@ The firewall is simply the tripwire that initiates the Authentication process.
 So if you read the above you will noticed this means exactly one or zero authentication listeners will ever actually be used as the first one too match the request and attempt authentication will be the only one used.
 
 Regardless of which listener was used, the end result of a successful authentication should be an authentication token that is then stored in TokenStorage:
+
 * A token is anything that implements `Symfony\Component\Security\Core\Authentication\Token\TokenInterface`
 * The token storage class is `Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage`
 * Token storage service: security.token_storage
